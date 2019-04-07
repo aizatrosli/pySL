@@ -1,4 +1,4 @@
-import os,sys,time
+import os,sys,time,math
 import pickle,random
 from OmegaExpansion import oledExp
 from OmegaExpansion import onionI2C
@@ -27,6 +27,8 @@ class oled(object):
         self.assets90 = self.cachepackasset(self.prepackasset, 90)
         self.assets180 = self.cachepackasset(self.prepackasset, 180)
         self.assets270 = self.cachepackasset(self.prepackasset, 270)
+        self.textsplit = None
+        self.textsplititter = 0
         print("> Done.")
 
     def unpackasset(self,assetpath):
@@ -90,14 +92,60 @@ class oled(object):
                 oledExp.setCursorByPixel(0, 0)
                 cachepage += 1
 
+    def drawtext(self, x, y, text, font='char10', rotate=0, size=None):
+
+        font = self.prepackasset[font]
+        charheight = len(font[list(font)[0]])
+        charwidth = len(font[list(font)[0]][0])
+        chararr = []
+        if self.textsplit is None:
+            chararr = [[] for i in range(charheight)]
+            for char in text:
+                for j,row in enumerate(font[char]):
+                    chararr[j] = chararr[j]+row
+            if rotate:
+                chararr = self.rotateasset(chararr, rotate)
+
+            chararrheight = len(chararr)
+            chararrwidth = len(chararr[0])
+            deltaheight = int(self.OLED_HEIGHT-y)
+            deltawidth = int(self.OLED_WIDTH-x)
+            self.textsplit = []
+            if chararrheight > deltaheight:
+                for i in range(int(math.ceil(chararrheight/deltaheight))):
+                    splitarr = chararr[:deltaheight]
+                    if len(splitarr) != deltaheight:
+                        splitarr = splitarr + [[0 for i in range(chararrwidth)] for j in range(deltaheight-len(splitarr))]
+                    self.textsplit.append(splitarr)
+                    chararr = chararr[deltaheight:]
+
+            elif chararrwidth > deltawidth:
+                for i in range(int(math.ceil(chararrwidth/deltawidth))):
+                    splitarr = [[] for i in range(chararrheight)]
+                    for j, row in enumerate(chararr):
+                        splitarr[j] = chararr[:deltawidth]
+                        chararr[j] = chararr[deltawidth:]
+                    self.textsplit.append(splitarr)
+            else:
+                chararr = self.cacheasset(chararr)
+                self.textsplit = None
+
+        if len(self.textsplit) > 0:
+            chararr = self.cacheasset(self.textsplit[self.textsplititter])
+            self.textsplititter = self.textsplititter + 1 if self.textsplititter < len(self.textsplit)-1 else 0
+        self.drawasset(x, y, chararr)
+
+
+
+
 
 test = oled('/root/assets')
 counter = 0
 try:
     while True:
         counter += 1
-        test.drawasset(2, 0, test.assets90['char10']['H'])
-        test.drawasset(2, 16, test.assets90['char10']['I'])
+        test.drawtext(2, 2, "TEST_LINE_HERE_WHERE_ARE_YOU", rotate=90)
+        time.sleep(1)
         test.drawasset(32, 10, test.assets['dice']['dice{0}'.format(random.randint(1, 6))])
         counter = 1 if counter > 10 else counter
         test.drawasset(96, 2, test.assets['snake']['snake{0}'.format(counter)])
