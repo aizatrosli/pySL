@@ -135,6 +135,49 @@ class oled(object):
             self.textsplititter = self.textsplititter + 1 if self.textsplititter < len(self.textsplit)-1 else 0
         self.drawasset(x, y, chararr)
 
+    def drawtextscroll(self, x, y, text, font='char10', rotate=0, size=None, gap=1):
+
+        font = self.prepackasset[font]
+        charheight = len(font[list(font)[0]])
+        charwidth = len(font[list(font)[0]][0])
+        chararr = []
+        if self.textsplit is None:
+            chararr = [[] for i in range(charheight)]
+            for char in text:
+                for j,row in enumerate(font[char]):
+                    chararr[j] = chararr[j]+row
+            if rotate:
+                chararr = self.rotateasset(chararr, rotate)
+
+            chararrheight = len(chararr)
+            chararrwidth = len(chararr[0])
+            deltaheight = int(self.OLED_HEIGHT-y)
+            deltawidth = int(self.OLED_WIDTH-x)
+            self.textsplit = []
+            if chararrheight > deltaheight:
+                for i in range(int(math.ceil(chararrheight/gap))):
+                    splitarr = chararr[:deltaheight]
+                    if len(splitarr) != deltaheight:
+                        splitarr = splitarr + [[0 for i in range(chararrwidth)] for j in range(deltaheight-len(splitarr))]
+                    self.textsplit.append(splitarr)
+                    chararr = chararr[gap:]
+
+            elif chararrwidth > deltawidth:
+                for i in range(int(math.ceil(chararrwidth/gap))):
+                    splitarr = [[] for i in range(chararrheight)]
+                    for j, row in enumerate(chararr):
+                        splitarr[j] = chararr[:deltawidth]
+                        chararr[j] = chararr[gap:]
+                    self.textsplit.append(splitarr)
+            else:
+                chararr = self.cacheasset(chararr)
+                self.textsplit = None
+
+        if len(self.textsplit) > 0:
+            chararr = self.cacheasset(self.textsplit[self.textsplititter])
+            self.textsplititter = self.textsplititter + 1 if self.textsplititter < len(self.textsplit)-1 else 0
+        self.drawasset(x, y, chararr)
+
 
 
 
