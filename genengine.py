@@ -123,8 +123,8 @@ class oled(object):
                 for i in range(int(math.ceil(chararrwidth/deltawidth))):
                     splitarr = [[] for i in range(chararrheight)]
                     for j, row in enumerate(chararr):
-                        splitarr[j] = chararr[:deltawidth]
-                        chararr[j] = chararr[deltawidth:]
+                        splitarr[j] = row[:deltawidth]
+                        chararr[j] = row[deltawidth:]
                     self.textsplit.append(splitarr)
             else:
                 chararr = self.cacheasset(chararr)
@@ -166,8 +166,8 @@ class oled(object):
                 for i in range(int(math.ceil(chararrwidth/gap))):
                     splitarr = [[] for i in range(chararrheight)]
                     for j, row in enumerate(chararr):
-                        splitarr[j] = chararr[:deltawidth]
-                        chararr[j] = chararr[gap:]
+                        splitarr[j] = row[:deltawidth]
+                        chararr[j] = row[gap:]
                     self.textsplit.append(splitarr)
             else:
                 chararr = self.cacheasset(chararr)
