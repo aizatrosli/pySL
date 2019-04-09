@@ -1,5 +1,6 @@
 import os,sys,time,math
 import pickle,random
+import threading
 from OmegaExpansion import oledExp
 from OmegaExpansion import onionI2C
 
@@ -27,8 +28,8 @@ class oled(object):
         self.assets90 = self.cachepackasset(self.prepackasset, 90)
         self.assets180 = self.cachepackasset(self.prepackasset, 180)
         self.assets270 = self.cachepackasset(self.prepackasset, 270)
-        self.textsplit = None
-        self.textsplititter = 0
+        self.textsplit = {}
+        self.textsplititter = {}
         print("> Done.")
 
     def unpackasset(self,assetpath):
@@ -98,41 +99,41 @@ class oled(object):
         charheight = len(font[list(font)[0]])
         charwidth = len(font[list(font)[0]][0])
         chararr = []
-        if self.textsplit is None:
+        if not self.textsplit or not text in self.textsplit.keys():
             chararr = [[] for i in range(charheight)]
             for char in text:
                 for j,row in enumerate(font[char]):
                     chararr[j] = chararr[j]+row
             if rotate:
                 chararr = self.rotateasset(chararr, rotate)
-
+            self.textsplititter[text] = 0
             chararrheight = len(chararr)
             chararrwidth = len(chararr[0])
             deltaheight = int(self.OLED_HEIGHT-y)
             deltawidth = int(self.OLED_WIDTH-x)
-            self.textsplit = []
+            temptextsplit = []
             if chararrheight > deltaheight:
                 for i in range(int(math.ceil(chararrheight/deltaheight))):
                     splitarr = chararr[:deltaheight]
                     if len(splitarr) != deltaheight:
                         splitarr = splitarr + [[0 for i in range(chararrwidth)] for j in range(deltaheight-len(splitarr))]
-                    self.textsplit.append(splitarr)
+                    temptextsplit.append(splitarr)
                     chararr = chararr[deltaheight:]
-
             elif chararrwidth > deltawidth:
                 for i in range(int(math.ceil(chararrwidth/deltawidth))):
                     splitarr = [[] for i in range(chararrheight)]
                     for j, row in enumerate(chararr):
                         splitarr[j] = row[:deltawidth]
                         chararr[j] = row[deltawidth:]
-                    self.textsplit.append(splitarr)
+                    temptextsplit.append(splitarr)
             else:
                 chararr = self.cacheasset(chararr)
-                self.textsplit = None
+                temptextsplit = None
+            self.textsplit[text] = temptextsplit
 
-        if len(self.textsplit) > 0:
-            chararr = self.cacheasset(self.textsplit[self.textsplititter])
-            self.textsplititter = self.textsplititter + 1 if self.textsplititter < len(self.textsplit)-1 else 0
+        if len(self.textsplit[text]) > 0:
+            chararr = self.cacheasset(self.textsplit[text][self.textsplititter[text]])
+            self.textsplititter[text] = self.textsplititter[text] + 1 if self.textsplititter[text] < len(self.textsplit[text])-1 else 0
         self.drawasset(x, y, chararr)
 
     def drawtextscroll(self, x, y, text, font='char10', rotate=0, size=None, gap=1):
@@ -141,57 +142,72 @@ class oled(object):
         charheight = len(font[list(font)[0]])
         charwidth = len(font[list(font)[0]][0])
         chararr = []
-        if self.textsplit is None:
+        if not self.textsplit or not text in self.textsplit.keys():
             chararr = [[] for i in range(charheight)]
             for char in text:
                 for j,row in enumerate(font[char]):
                     chararr[j] = chararr[j]+row
             if rotate:
                 chararr = self.rotateasset(chararr, rotate)
-
+            self.textsplititter[text] = 0
             chararrheight = len(chararr)
             chararrwidth = len(chararr[0])
             deltaheight = int(self.OLED_HEIGHT-y)
             deltawidth = int(self.OLED_WIDTH-x)
-            self.textsplit = []
+            temptextsplit = []
             if chararrheight > deltaheight:
                 for i in range(int(math.ceil(chararrheight/gap))):
                     splitarr = chararr[:deltaheight]
                     if len(splitarr) != deltaheight:
                         splitarr = splitarr + [[0 for i in range(chararrwidth)] for j in range(deltaheight-len(splitarr))]
-                    self.textsplit.append(splitarr)
+                    temptextsplit.append(splitarr)
                     chararr = chararr[gap:]
-
             elif chararrwidth > deltawidth:
                 for i in range(int(math.ceil(chararrwidth/gap))):
                     splitarr = [[] for i in range(chararrheight)]
                     for j, row in enumerate(chararr):
                         splitarr[j] = row[:deltawidth]
                         chararr[j] = row[gap:]
-                    self.textsplit.append(splitarr)
+                    temptextsplit.append(splitarr)
             else:
                 chararr = self.cacheasset(chararr)
                 self.textsplit = None
+            self.textsplit[text] = temptextsplit
 
-        if len(self.textsplit) > 0:
-            chararr = self.cacheasset(self.textsplit[self.textsplititter])
-            self.textsplititter = self.textsplititter + 1 if self.textsplititter < len(self.textsplit)-1 else 0
+        if len(self.textsplit[text]) > 0:
+            chararr = self.cacheasset(self.textsplit[text][self.textsplititter[text]])
+            self.textsplititter[text] = self.textsplititter[text] + 1 if self.textsplititter[text] < len(self.textsplit[text])-1 else 0
         self.drawasset(x, y, chararr)
 
 
-
-
-
-test = oled('/root/assets')
-counter = 0
-try:
+def drawthreadscroll(classoled,text,x,y,rotate,gap):
     while True:
-        counter += 1
-        test.drawtext(2, 2, "TEST_LINE_HERE_WHERE_ARE_YOU", rotate=90)
-        time.sleep(1)
-        test.drawasset(32, 10, test.assets['dice']['dice{0}'.format(random.randint(1, 6))])
-        counter = 1 if counter > 10 else counter
-        test.drawasset(96, 2, test.assets['snake']['snake{0}'.format(counter)])
-        test.drawasset(96, 36, test.assets['snake']['snake{0}'.format(counter)])
-except KeyboardInterrupt:
-    print('interrupted! count:' + str(counter))
+        classoled.drawtextscroll(x, y, text, rotate=rotate,gap=gap)
+
+def drawthreadassets(classoled,asset,x,y):
+    while True:
+        classoled.drawasset(x,y,asset)
+
+def drawthreadsnake(classoled,x,y):
+    while True:
+        for counter in range(10):
+            classoled.drawasset(x, y, classoled.assets['snake']['snake{0}'.format(counter)])
+
+
+if __name__ == "__main__":
+
+    try:
+        test = oled('/root/assets')
+        task1 = threading.Thread(target=drawthreadscroll, kwargs={'classoled': test,'text':"PRESS_START_TO_BEGIN",'x':2,'y':2,'rotate':90,'gap':1})
+        task2 = threading.Thread(target=drawthreadscroll, kwargs={'classoled': test,'text':"PLAYER_3",'x':96,'y':36,'rotate':0,'gap':1})
+        task3 = threading.Thread(target=drawthreadassets, kwargs={'classoled': test,'asset': test.assets['dice']['dice{0}'.format(random.randint(1, 6))],'x':32,'y':10})
+        #task4 = threading.Thread(target=drawthreadassets, kwargs={'classoled': test,'x':96,'y':2})
+        counter = 0
+
+        task1.start()
+        task2.start()
+        task3.start()
+        #task4.start()
+    except KeyboardInterrupt:
+        print('interrupted!')
+
